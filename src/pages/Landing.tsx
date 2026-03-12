@@ -1,45 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/Button';
-import {
-  Target,
-  DollarSign,
-  CheckCircle2,
-  Clock,
-  ChevronDown,
-  ArrowRight,
-  Zap,
-  Shield,
-  TrendingUp,
-} from 'lucide-react';
+import { ChevronDown, ArrowRight } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-
-const STEPS = [
-  {
-    icon: Target,
-    title: 'Set a goal',
-    description: "Describe what you're going to do. Be specific. \"Get fit\" doesn't cut it. \"Run 3x per week for a month\" does.",
-  },
-  {
-    icon: DollarSign,
-    title: 'Stake real money',
-    description: "Put $25 to $500 on the line. Enough that losing it would sting. Not enough to ruin you. You know the number.",
-  },
-  {
-    icon: Clock,
-    title: 'Actually do the thing',
-    description: "We can't help you here. That's the point. No AI coach. No push notifications. Just the knowledge that your money is on the line.",
-  },
-  {
-    icon: CheckCircle2,
-    title: 'Get your money back',
-    description: "Self-report your progress honestly. Our rigorous review process* will verify your claim. Money returned minus 0.5%.",
-  },
-];
 
 const FAQS = [
   {
-    q: "Wait, you just trust people to tell the truth?",
+    q: "You just... trust people?",
     a: "Yes. It's an honor system, like levels.fyi for salary data. We also run every claim through a review process that is extremely thorough and completely opaque. The friction alone keeps the honest people honest and the dishonest people annoyed.",
   },
   {
@@ -55,7 +22,7 @@ const FAQS = [
     a: "It's a commitment contract. stickK (founded by Yale economists) has been doing this since 2008 with $69 million on the line. We're doing the same thing but funnier.",
   },
   {
-    q: 'What if your "review process" incorrectly denies my claim?',
+    q: 'What if your "review process" incorrectly denies me?',
     a: "You can appeal. Appeals are reviewed by our senior accountability specialists and are handled with the utmost care and attention. We take every appeal very seriously.",
   },
   {
@@ -64,27 +31,28 @@ const FAQS = [
   },
   {
     q: "Who is this for?",
-    a: "Procrastinators with disposable income. People who own 12 productivity apps and still don't go to the gym. Side-project abandonoors. Resolution breakers. If you've ever set a goal on January 1st and forgotten it by January 3rd, welcome home.",
+    a: "Procrastinators with disposable income. People who own 12 productivity apps and still don't go to the gym. Side-project abandoners. Resolution breakers. If you've ever set a goal on January 1st and forgotten it by January 3rd — welcome home.",
   },
 ];
 
-function FAQItem({ q, a }: { q: string; a: string }) {
+function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-border">
+    <div className="border-b border-border/50">
       <button
-        className="w-full flex items-center justify-between py-5 text-left cursor-pointer group"
+        className="w-full flex items-center justify-between py-6 text-left cursor-pointer group"
         onClick={() => setOpen(!open)}
       >
-        <span className="font-medium text-text group-hover:text-accent transition-colors pr-4">{q}</span>
+        <div className="flex items-baseline gap-4 pr-4">
+          <span className="text-xs font-mono text-text-dim tabular-nums">{String(index + 1).padStart(2, '0')}</span>
+          <span className="font-medium text-text/90 group-hover:text-text transition-colors">{q}</span>
+        </div>
         <ChevronDown
-          className={`w-5 h-5 text-text-muted shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-text-dim shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
         />
       </button>
-      <div
-        className={`overflow-hidden transition-all duration-300 ${open ? 'max-h-96 pb-5' : 'max-h-0'}`}
-      >
-        <p className="text-text-muted leading-relaxed">{a}</p>
+      <div className={`overflow-hidden transition-all duration-500 ease-out ${open ? 'max-h-96 pb-6' : 'max-h-0'}`}>
+        <p className="text-text-muted leading-relaxed pl-10">{a}</p>
       </div>
     </div>
   );
@@ -94,176 +62,200 @@ export function Landing() {
   const { user } = useAuth();
 
   return (
-    <div>
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-accent/5 via-transparent to-transparent" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-24 pb-20 sm:pt-32 sm:pb-28">
-          <div className="max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface border border-border text-sm text-text-muted mb-8 animate-fade-in">
-              <Zap className="w-3.5 h-3.5 text-accent" />
-              Doing what AI patently cannot
-            </div>
-
-            <h1 className="text-5xl sm:text-7xl font-black tracking-tight leading-[1.05] animate-fade-in stagger-1">
-              Accountability
-              <br />
-              <span className="text-accent">as a Service</span>
-            </h1>
-
-            <p className="mt-6 text-xl sm:text-2xl text-text-muted leading-relaxed animate-fade-in stagger-2">
-              Put your money where your mouth is.{' '}
-              <span className="text-text font-medium">Literally.</span>
-            </p>
-
-            <p className="mt-4 text-lg text-text-dim italic animate-fade-in stagger-3">
-              If it works, is it dumb?
-            </p>
-
-            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in stagger-4">
-              <Link to={user ? '/new' : '/auth'}>
-                <Button size="lg">
-                  Commit to Something
-                  <ArrowRight className="w-5 h-5" />
-                </Button>
-              </Link>
-              <a href="#how-it-works">
-                <Button variant="secondary" size="lg">
-                  How It Works
-                </Button>
-              </a>
-            </div>
-          </div>
+    <div className="relative">
+      {/* ═══ HERO ═══ */}
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+        {/* Atmospheric background */}
+        <div className="absolute inset-0">
+          <div className="cloud cloud-1" style={{ top: '-10%', left: '-5%' }} />
+          <div className="cloud cloud-2" style={{ top: '20%', right: '-10%' }} />
+          <div className="cloud cloud-3" style={{ bottom: '-5%', left: '10%' }} />
+          <div className="lightning-flash" />
+          <div className="lightning-flash-2" />
         </div>
-      </section>
 
-      {/* Social Proof / Stats */}
-      <section className="border-y border-border bg-surface/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-3xl font-bold text-accent">$0</div>
-              <div className="text-sm text-text-muted mt-1">Total staked so far</div>
-              <div className="text-xs text-text-dim mt-0.5">(we just launched, give us a minute)</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold">0.5%</div>
-              <div className="text-sm text-text-muted mt-1">Platform fee</div>
-              <div className="text-xs text-text-dim mt-0.5">That's 50 cents on $100</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-warning">100%</div>
-              <div className="text-sm text-text-muted mt-1">Honor system</div>
-              <div className="text-xs text-text-dim mt-0.5">We trust you (mostly)</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section id="how-it-works" className="py-20 sm:py-28">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Four steps to not being a flake
-            </h2>
-            <p className="mt-4 text-text-muted text-lg">
-              Simple enough that you can't procrastinate on learning how it works.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {STEPS.map((step, i) => (
-              <div
-                key={step.title}
-                className="relative bg-surface border border-border rounded-xl p-6 hover:border-border-bright transition-colors"
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                    <step.icon className="w-5 h-5 text-accent" />
-                  </div>
-                  <span className="text-xs font-mono text-text-dim">STEP {i + 1}</span>
-                </div>
-                <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
-                <p className="text-sm text-text-muted leading-relaxed">{step.description}</p>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-center text-xs text-text-dim mt-8">
-            *&quot;Rigorous review process&quot; may consist entirely of a timer and a progress bar.
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center py-20">
+          <p className="text-[11px] uppercase tracking-dramatic text-text-dim font-medium mb-12 animate-fade-in">
+            Accountability as a Service
           </p>
-        </div>
-      </section>
 
-      {/* Value Props */}
-      <section className="py-20 border-t border-border bg-surface/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center px-4">
-              <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Loss aversion is real</h3>
-              <p className="text-text-muted text-sm leading-relaxed">
-                Behavioral economics says losing $50 hurts more than gaining $50 feels good.
-                We didn't invent the science. We just put it on a website.
-              </p>
-            </div>
-            <div className="text-center px-4">
-              <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="w-6 h-6 text-warning" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Skin in the game</h3>
-              <p className="text-text-muted text-sm leading-relaxed">
-                Free accountability apps have a 0% accountability rate (we made that up, but
-                it feels right). When real money is involved, priorities shift.
-              </p>
-            </div>
-            <div className="text-center px-4">
-              <div className="w-12 h-12 rounded-xl bg-danger/10 flex items-center justify-center mx-auto mb-4">
-                <Zap className="w-6 h-6 text-danger" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">No coaching, no AI, no BS</h3>
-              <p className="text-text-muted text-sm leading-relaxed">
-                We're not going to send you motivational quotes. We're not going to track your
-                steps. We're just going to hold your money hostage until you do the thing.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="py-20 sm:py-28">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-12">
-            Frequently Asked Questions
-          </h2>
-          <div>
-            {FAQS.map((faq) => (
-              <FAQItem key={faq.q} q={faq.q} a={faq.a} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="py-20 border-t border-border">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Ready to put your money
+          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] animate-fade-in stagger-1 glow-text-subtle">
+            If it works,
             <br />
-            where your mouth is?
-          </h2>
-          <p className="mt-4 text-text-muted text-lg">
-            The first step is always the hardest. The second step is paying us.
+            <span className="glow-text text-accent">is it dumb?</span>
+          </h1>
+
+          <p className="mt-10 text-lg sm:text-xl text-text-muted max-w-xl mx-auto leading-relaxed animate-fade-in stagger-2">
+            Stake real money on your goals.
+            <br className="hidden sm:block" />
+            Get it back when you follow through.
           </p>
-          <div className="mt-8">
+
+          <div className="mt-14 animate-fade-in stagger-3">
             <Link to={user ? '/new' : '/auth'}>
               <Button size="lg">
-                Make a Commitment
-                <ArrowRight className="w-5 h-5" />
+                Enter
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+
+          <p className="mt-20 text-[10px] uppercase tracking-dramatic text-text-dim/60 animate-fade-in stagger-4">
+            Minus 0.5%. For our trouble.
+          </p>
+        </div>
+      </section>
+
+      {/* ═══ FOG TRANSITION ═══ */}
+      <div className="fog-divider" />
+
+      {/* ═══ THE PREMISE ═══ */}
+      <section className="relative py-28 sm:py-36 overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="cloud cloud-2" style={{ top: '10%', left: '-15%', opacity: 0.5 }} />
+        </div>
+        <div className="relative max-w-2xl mx-auto px-4 sm:px-6">
+          <p className="text-[11px] uppercase tracking-dramatic text-text-dim font-medium mb-8">The Premise</p>
+          <div className="space-y-8 text-lg sm:text-xl text-text-muted leading-relaxed">
+            <p>
+              You have goals. You don't follow through.
+              <br />
+              <span className="text-text/70">This is not news to you.</span>
+            </p>
+            <p>
+              You've tried apps. You've tried habits.
+              <br />
+              You've tried telling yourself <span className="italic">this time will be different.</span>
+            </p>
+            <p className="text-text">
+              What you haven't tried is giving a website your money
+              and only getting it back if you actually do the thing.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <hr className="rule-ethereal max-w-md mx-auto" />
+
+      {/* ═══ HOW IT WORKS ═══ */}
+      <section id="how-it-works" className="relative py-28 sm:py-36 overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="cloud cloud-3" style={{ bottom: '0', right: '-10%', opacity: 0.4 }} />
+        </div>
+        <div className="relative max-w-2xl mx-auto px-4 sm:px-6">
+          <p className="text-[11px] uppercase tracking-dramatic text-text-dim font-medium mb-16">How it works</p>
+          <div className="space-y-16">
+            {[
+              {
+                num: '01',
+                title: 'Set a goal',
+                body: "Be specific. Measurable. Something you can look at in 30 days and know whether you did it or not.",
+              },
+              {
+                num: '02',
+                title: 'Stake real money',
+                body: "$25 to $500. Enough that losing it would sting. Not enough to ruin you. You know the number.",
+              },
+              {
+                num: '03',
+                title: 'Do the thing',
+                body: "No AI coach. No push notifications. No motivational quotes. Just you, your goal, and the quiet awareness that your money is being held hostage.",
+              },
+              {
+                num: '04',
+                title: 'Report back honestly',
+                body: "Self-report your progress. Our opaque and extremely rigorous review process will take it from there.",
+              },
+            ].map((step) => (
+              <div key={step.num} className="flex gap-6 sm:gap-8">
+                <span className="text-sm font-mono text-accent/50 pt-1 shrink-0">{step.num}</span>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-semibold text-text mb-2">{step.title}</h3>
+                  <p className="text-text-muted leading-relaxed">{step.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-text-dim/50 mt-16 pl-12 sm:pl-16 italic">
+            * "Rigorous review process" may consist entirely of a timer and a progress bar.
+          </p>
+        </div>
+      </section>
+
+      <div className="fog-divider" />
+
+      {/* ═══ THE SCIENCE ═══ */}
+      <section className="relative py-28 sm:py-36 overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="cloud cloud-1" style={{ top: '5%', right: '-5%', opacity: 0.3 }} />
+        </div>
+        <div className="relative max-w-2xl mx-auto px-4 sm:px-6">
+          <p className="text-[11px] uppercase tracking-dramatic text-text-dim font-medium mb-8">Why it works</p>
+
+          <blockquote className="text-2xl sm:text-3xl font-light text-text/80 leading-snug mb-8 glow-text-subtle">
+            "Losses loom larger than gains."
+          </blockquote>
+          <p className="text-sm text-text-dim mb-12">
+            — Kahneman & Tversky, 1979. Prospect Theory.
+          </p>
+
+          <div className="space-y-6 text-text-muted leading-relaxed">
+            <p>
+              Loss aversion is one of the most replicated findings in behavioral economics.
+              Losing $50 hurts roughly twice as much as gaining $50 feels good.
+            </p>
+            <p>
+              stickK, the Yale-backed commitment contract platform, has put this to the test:
+              <span className="text-text font-medium"> $69 million staked</span> across 644,000 commitments.
+              Users with financial stakes succeed at significantly higher rates than those without.
+            </p>
+            <p className="text-text/70">
+              We didn't invent the science. We just put it on a website and gave it an unfortunate acronym.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <hr className="rule-ethereal max-w-md mx-auto" />
+
+      {/* ═══ FAQ ═══ */}
+      <section className="relative py-28 sm:py-36 overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="cloud cloud-2" style={{ top: '30%', left: '-10%', opacity: 0.3 }} />
+        </div>
+        <div className="relative max-w-2xl mx-auto px-4 sm:px-6">
+          <p className="text-[11px] uppercase tracking-dramatic text-text-dim font-medium mb-12">Questions</p>
+          <div>
+            {FAQS.map((faq, i) => (
+              <FAQItem key={faq.q} q={faq.q} a={faq.a} index={i} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="fog-divider" />
+
+      {/* ═══ FINAL CTA ═══ */}
+      <section className="relative py-36 sm:py-44 overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="cloud cloud-1" style={{ top: '10%', left: '20%', opacity: 0.4 }} />
+          <div className="cloud cloud-3" style={{ bottom: '10%', right: '10%', opacity: 0.3 }} />
+          <div className="lightning-flash" />
+        </div>
+        <div className="relative max-w-2xl mx-auto px-4 sm:px-6 text-center">
+          <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-[1.1] glow-text-subtle">
+            You already know
+            <br />
+            what you need to do.
+          </h2>
+          <p className="mt-6 text-text-muted text-lg">
+            The first step is the hardest. The second step is paying us.
+          </p>
+          <div className="mt-12">
+            <Link to={user ? '/new' : '/auth'}>
+              <Button size="lg">
+                Make a commitment
+                <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
           </div>
