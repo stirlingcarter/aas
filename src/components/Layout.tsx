@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Target, LogOut, LayoutDashboard, Plus } from 'lucide-react';
 import { Button } from './Button';
@@ -74,7 +74,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -85,8 +84,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    navigate('/auth', { replace: true });
-    return null;
+    return <Navigate to="/auth" replace />;
   }
 
   return <>{children}</>;
