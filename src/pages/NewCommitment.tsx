@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input, Textarea } from '../components/Input';
+import { CloudLayer } from '../components/Clouds';
 import { useCommitments } from '../hooks/useCommitments';
 import { useAuth } from '../hooks/useAuth';
 import { isStripeConfigured } from '../lib/stripe';
@@ -14,28 +15,36 @@ import {
   formatCents,
   PLATFORM_FEE_RATE,
 } from '../lib/constants';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Target,
-  DollarSign,
-  Calendar,
-  FileText,
-  CreditCard,
-  Check,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard } from 'lucide-react';
 
-const STEPS = ['Goal', 'Stakes', 'Deadline', 'Contract', 'Pay'] as const;
-type Step = (typeof STEPS)[number];
+type Step = 'goal' | 'stakes' | 'deadline' | 'account' | 'contract' | 'pay';
 
-const STEP_ICONS = { Goal: Target, Stakes: DollarSign, Deadline: Calendar, Contract: FileText, Pay: CreditCard };
+function getSteps(loggedIn: boolean): Step[] {
+  const base: Step[] = ['goal', 'stakes', 'deadline'];
+  if (!loggedIn) base.push('account');
+  base.push('contract', 'pay');
+  return base;
+}
+
+const STEP_LABELS: Record<Step, string> = {
+  goal: 'Goal',
+  stakes: 'Stakes',
+  deadline: 'Deadline',
+  account: 'Account',
+  contract: 'Contract',
+  pay: 'Pay',
+};
 
 export function NewCommitment() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signUp, signIn } = useAuth();
   const { createCommitment } = useCommitments();
 
-  const [step, setStep] = useState<Step>('Goal');
+  const steps = getSteps(!!user);
+
+  const [stepIdx, setStepIdx] = useState(0);
+  const step = steps[stepIdx];
+
   const [goal, setGoal] = useState('');
   const [amountCents, setAmountCents] = useState(5000);
   const [customAmount, setCustomAmount] = useState('');
@@ -44,7 +53,11 @@ export function NewCommitment() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const currentStepIndex = STEPS.indexOf(step);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
   const minDate = useMemo(() => {
     const d = new Date();
@@ -60,29 +73,34 @@ export function NewCommitment() {
 
   const canProceed = () => {
     switch (step) {
-      case 'Goal':
-        return goal.trim().length >= 10;
-      case 'Stakes':
-        return amountCents >= MIN_STAKE_CENTS && amountCents <= MAX_STAKE_CENTS;
-      case 'Deadline':
-        return deadline && new Date(deadline) > new Date();
-      case 'Contract':
-        return agreed;
-      case 'Pay':
-        return true;
-      default:
-        return false;
+      case 'goal': return goal.trim().length >= 10;
+      case 'stakes': return amountCents >= MIN_STAKE_CENTS && amountCents <= MAX_STAKE_CENTS;
+      case 'deadline': return deadline && new Date(deadline) > new Date();
+      case 'account': return false;
+      case 'contract': return agreed;
+      case 'pay': return true;
+      default: return false;
     }
   };
 
-  const next = () => {
-    const idx = STEPS.indexOf(step);
-    if (idx < STEPS.length - 1) setStep(STEPS[idx + 1]);
-  };
+  const next = () => { if (stepIdx < steps.length - 1) setStepIdx(stepIdx + 1); };
+  const prev = () => { if (stepIdx > 0) setStepIdx(stepIdx - 1); };
 
-  const prev = () => {
-    const idx = STEPS.indexOf(step);
-    if (idx > 0) setStep(STEPS[idx - 1]);
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+
+    if (authMode === 'signup') {
+      const { error: err } = await signUp(email, password);
+      if (err) { setAuthError(err); setAuthLoading(false); return; }
+    } else {
+      const { error: err } = await signIn(email, password);
+      if (err) { setAuthError(err); setAuthLoading(false); return; }
+    }
+
+    setAuthLoading(false);
+    next();
   };
 
   const handlePayment = async () => {
@@ -94,9 +112,8 @@ export function NewCommitment() {
       const commitment = await createCommitment(
         goal.trim(),
         amountCents,
-        new Date(deadline + 'T23:59:59Z').toISOString()
+        new Date(deadline + 'T23:59:59Z').toISOString(),
       );
-
       if (!commitment) throw new Error('Failed to create commitment');
 
       if (isStripeConfigured() && isSupabaseConfigured()) {
@@ -107,13 +124,8 @@ export function NewCommitment() {
             goal_description: goal.trim(),
           },
         });
-
         if (fnErr) throw fnErr;
-
-        if (data?.url) {
-          window.location.href = data.url;
-          return;
-        }
+        if (data?.url) { window.location.href = data.url; return; }
       }
 
       navigate(`/commitment/${commitment.id}`);
@@ -129,156 +141,121 @@ export function NewCommitment() {
   const netRefund = amountCents - platformFee;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-text-muted hover:text-text transition-colors mb-6 cursor-pointer"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span className="text-sm">Back</span>
-      </button>
+    <>
+      <CloudLayer />
+      <div className="lightning-flash" />
 
-      <h1 className="text-2xl font-bold mb-2">New Commitment</h1>
-      <p className="text-text-muted mb-8">Put something real on the line.</p>
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-10 relative z-10">
+        {/* Back + progress */}
+        <div className="flex items-center justify-between mb-10">
+          <button
+            onClick={stepIdx === 0 ? () => navigate('/') : prev}
+            className="flex items-center gap-1.5 text-text-dim hover:text-text-muted transition-colors cursor-pointer text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-1.5">
+            {steps.map((s, i) => (
+              <div
+                key={s}
+                className={`h-1 rounded-full transition-all duration-500 ${
+                  i <= stepIdx ? 'bg-accent w-6' : 'bg-border w-3'
+                }`}
+              />
+            ))}
+          </div>
+          <span className="text-[11px] uppercase tracking-[0.15em] text-text-dim">
+            {STEP_LABELS[step]}
+          </span>
+        </div>
 
-      {/* Step Indicator */}
-      <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
-        {STEPS.map((s, i) => {
-          const Icon = STEP_ICONS[s];
-          const isActive = i === currentStepIndex;
-          const isDone = i < currentStepIndex;
-          return (
-            <div key={s} className="flex items-center gap-2">
-              {i > 0 && (
-                <div className={`w-8 h-px ${isDone ? 'bg-accent' : 'bg-border'}`} />
-              )}
-              <button
-                onClick={() => i < currentStepIndex && setStep(STEPS[i])}
-                disabled={i > currentStepIndex}
-                className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                  transition-colors cursor-pointer
-                  ${isActive ? 'bg-accent text-bg' : isDone ? 'bg-accent/20 text-accent' : 'bg-surface text-text-dim'}
-                `}
-              >
-                {isDone ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">{s}</span>
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      <Card padding="lg">
-        {/* Step: Goal */}
-        {step === 'Goal' && (
-          <div className="space-y-4 animate-fade-in">
+        {/* ── GOAL ── */}
+        {step === 'goal' && (
+          <div className="animate-fade-in space-y-6">
             <div>
-              <h2 className="text-lg font-semibold mb-1">What are you committing to?</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-2">What are you committing to?</h2>
               <p className="text-text-muted text-sm">
-                Be specific. Measurable goals work best. "Get healthier" is an aspiration.
-                "Run 3 times per week for 4 weeks" is a commitment.
+                Be specific and measurable. Something you can look at on the deadline and know yes or no.
               </p>
             </div>
             <Textarea
-              label="Your commitment"
-              placeholder='e.g., "Complete 20 LeetCode problems in 30 days" or "Write 1000 words every day for 2 weeks"'
+              placeholder='"Complete 20 LeetCode problems in 30 days"'
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
               rows={4}
             />
             <p className="text-xs text-text-dim">
               {goal.trim().length < 10
-                ? `${10 - goal.trim().length} more characters needed`
-                : 'Looks good.'}
+                ? `${10 - goal.trim().length} more characters`
+                : 'Good.'}
             </p>
           </div>
         )}
 
-        {/* Step: Stakes */}
-        {step === 'Stakes' && (
-          <div className="space-y-6 animate-fade-in">
+        {/* ── STAKES ── */}
+        {step === 'stakes' && (
+          <div className="animate-fade-in space-y-6">
             <div>
-              <h2 className="text-lg font-semibold mb-1">How much are you staking?</h2>
-              <p className="text-text-muted text-sm">
-                Pick an amount that would sting to lose. Not enough to ruin your week,
-                but enough that you'll think twice about skipping leg day.
-              </p>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-2">How much?</h2>
+              <p className="text-text-muted text-sm">Enough to sting. Not enough to ruin you.</p>
             </div>
 
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-              {STAKE_PRESETS.map((preset) => (
+              {STAKE_PRESETS.map((p) => (
                 <button
-                  key={preset.cents}
-                  onClick={() => { setAmountCents(preset.cents); setCustomAmount(''); }}
-                  className={`
-                    px-4 py-3 rounded-lg border text-center font-semibold
-                    transition-all cursor-pointer
-                    ${amountCents === preset.cents && !customAmount
+                  key={p.cents}
+                  onClick={() => { setAmountCents(p.cents); setCustomAmount(''); }}
+                  className={`px-4 py-3 rounded-lg border text-center font-semibold transition-all cursor-pointer ${
+                    amountCents === p.cents && !customAmount
                       ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-border hover:border-border-bright text-text-muted hover:text-text'}
-                  `}
+                      : 'border-border hover:border-border-bright text-text-muted hover:text-text'
+                  }`}
                 >
-                  {preset.label}
+                  {p.label}
                 </button>
               ))}
             </div>
 
-            <div>
-              <Input
-                label="Custom amount"
-                type="number"
-                placeholder="Enter amount in dollars"
-                value={customAmount}
-                onChange={(e) => {
-                  setCustomAmount(e.target.value);
-                  const cents = Math.round(parseFloat(e.target.value || '0') * 100);
-                  if (cents >= MIN_STAKE_CENTS && cents <= MAX_STAKE_CENTS) {
-                    setAmountCents(cents);
-                  }
-                }}
-                min={MIN_STAKE_CENTS / 100}
-                max={MAX_STAKE_CENTS / 100}
-                step="0.01"
-              />
-            </div>
+            <Input
+              label="Custom ($)"
+              type="number"
+              value={customAmount}
+              onChange={(e) => {
+                setCustomAmount(e.target.value);
+                const c = Math.round(parseFloat(e.target.value || '0') * 100);
+                if (c >= MIN_STAKE_CENTS && c <= MAX_STAKE_CENTS) setAmountCents(c);
+              }}
+              min={MIN_STAKE_CENTS / 100}
+              max={MAX_STAKE_CENTS / 100}
+              step="0.01"
+            />
 
-            <div className="bg-bg rounded-lg p-4 space-y-2 text-sm">
+            <div className="bg-bg/60 backdrop-blur-sm rounded-lg p-4 space-y-1.5 text-sm border border-border/50">
               <div className="flex justify-between">
-                <span className="text-text-muted">You stake</span>
-                <span className="font-medium">{formatCents(amountCents)}</span>
+                <span className="text-text-dim">Stake</span>
+                <span>{formatCents(amountCents)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-muted">Platform fee (0.5%)</span>
+                <span className="text-text-dim">Fee (0.5%)</span>
                 <span className="text-text-dim">-{formatCents(platformFee)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-text-muted">Stripe processing (est.)</span>
-                <span className="text-text-dim">-{formatCents(stripeFee)}</span>
+              <hr className="rule-ethereal" />
+              <div className="flex justify-between font-medium">
+                <span className="text-text-dim">If you succeed</span>
+                <span className="text-accent">{formatCents(netRefund)}</span>
               </div>
-              <div className="border-t border-border pt-2 flex justify-between">
-                <span className="text-text-muted">If you succeed, you get back</span>
-                <span className="font-semibold text-accent">{formatCents(netRefund)}</span>
-              </div>
-              <p className="text-xs text-text-dim pt-1">
-                Stripe processing fee ({formatCents(stripeFee)}) is non-refundable. Net cost of success: {formatCents(amountCents - netRefund + stripeFee)}.
-              </p>
             </div>
           </div>
         )}
 
-        {/* Step: Deadline */}
-        {step === 'Deadline' && (
-          <div className="space-y-4 animate-fade-in">
+        {/* ── DEADLINE ── */}
+        {step === 'deadline' && (
+          <div className="animate-fade-in space-y-6">
             <div>
-              <h2 className="text-lg font-semibold mb-1">When's the deadline?</h2>
-              <p className="text-text-muted text-sm">
-                Your goal must be achieved by this date. After the deadline, you'll be asked
-                to verify whether you followed through.
-              </p>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-2">By when?</h2>
+              <p className="text-text-muted text-sm">After this date, you verify whether you did it.</p>
             </div>
             <Input
-              label="Deadline"
               type="date"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
@@ -287,149 +264,166 @@ export function NewCommitment() {
             />
             {deadline && (
               <p className="text-sm text-text-muted">
-                That's{' '}
                 <span className="text-text font-medium">
-                  {Math.ceil(
-                    (new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-                  )}{' '}
-                  days
-                </span>{' '}
-                from now.
+                  {Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days.
+                </span>
                 {Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <= 3
-                  ? " Bold move."
-                  : ""}
+                  ? ' Bold.'
+                  : ''}
               </p>
             )}
           </div>
         )}
 
-        {/* Step: Contract */}
-        {step === 'Contract' && (
-          <div className="space-y-6 animate-fade-in">
+        {/* ── ACCOUNT (only if not logged in) ── */}
+        {step === 'account' && (
+          <div className="animate-fade-in space-y-6">
             <div>
-              <h2 className="text-lg font-semibold mb-1">The Contract</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-2">
+                {authMode === 'signup' ? 'Create an account' : 'Sign in'}
+              </h2>
               <p className="text-text-muted text-sm">
-                Review your commitment. This is the part where it gets real.
+                So we know where to send the money back.
               </p>
             </div>
 
-            <div className="bg-bg rounded-lg p-6 space-y-4 border border-border">
-              <div className="text-center mb-4">
-                <h3 className="font-bold text-lg">COMMITMENT CONTRACT</h3>
-                <p className="text-text-dim text-xs">Accountability as a Service</p>
-              </div>
+            <form onSubmit={handleAuth} className="space-y-4">
+              <Input
+                label="Email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <Input
+                label="Password"
+                type="password"
+                placeholder={authMode === 'signup' ? 'At least 6 characters' : '••••••••'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={6}
+                required
+              />
 
-              <div className="space-y-3 text-sm">
-                <div>
-                  <span className="text-text-dim">I,</span>{' '}
-                  <span className="font-medium">{user?.email || 'the undersigned'}</span>
-                  <span className="text-text-dim">, hereby commit to the following:</span>
-                </div>
+              {authError && (
+                <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{authError}</p>
+              )}
 
-                <div className="bg-surface rounded-lg p-3">
-                  <p className="font-medium">{goal}</p>
-                </div>
+              <Button type="submit" className="w-full" loading={authLoading}>
+                {authMode === 'signup' ? 'Create Account & Continue' : 'Sign In & Continue'}
+              </Button>
+            </form>
 
-                <p className="text-text-muted">
-                  I am staking <strong className="text-text">{formatCents(amountCents)}</strong> of my real,
-                  actual money on the completion of this goal by{' '}
-                  <strong className="text-text">{new Date(deadline).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>.
-                </p>
+            <button
+              className="text-sm text-text-dim hover:text-text-muted transition-colors cursor-pointer w-full text-center"
+              onClick={() => { setAuthMode(authMode === 'signup' ? 'signin' : 'signup'); setAuthError(''); }}
+            >
+              {authMode === 'signup' ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
+            </button>
+          </div>
+        )}
 
-                <p className="text-text-muted">
-                  I understand that if I achieve my goal, I will receive a refund of{' '}
-                  <strong className="text-accent">{formatCents(amountCents - platformFee)}</strong> (original
-                  amount minus 0.5% platform fee). Stripe processing fees are non-refundable.
-                </p>
-
-                <p className="text-text-muted">
-                  I understand that if I fail, my money will be forfeited. I further understand
-                  that verification is based on an honor system and I commit to reporting
-                  honestly.
-                </p>
-
-                <p className="text-text-dim text-xs italic mt-4">
-                  This is a commitment contract, not a wager. The purpose is behavioral
-                  motivation through loss aversion. By proceeding, I acknowledge this is
-                  money I can afford to lose and I am participating voluntarily.
-                </p>
-              </div>
+        {/* ── CONTRACT ── */}
+        {step === 'contract' && (
+          <div className="animate-fade-in space-y-6">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-2">The Contract</h2>
+              <p className="text-text-muted text-sm">This is where it gets real.</p>
             </div>
+
+            <Card padding="lg" className="bg-bg/60 backdrop-blur-sm">
+              <div className="text-center mb-6">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-text-dim">Commitment Contract</p>
+              </div>
+              <div className="space-y-4 text-sm text-text-muted">
+                <p>
+                  I, <span className="text-text font-medium">{user?.email || email}</span>,
+                  commit to:
+                </p>
+                <div className="bg-surface rounded-lg p-3">
+                  <p className="text-text font-medium">{goal}</p>
+                </div>
+                <p>
+                  I am staking <strong className="text-text">{formatCents(amountCents)}</strong> by{' '}
+                  <strong className="text-text">
+                    {deadline && new Date(deadline).toLocaleDateString('en-US', {
+                      month: 'long', day: 'numeric', year: 'numeric',
+                    })}
+                  </strong>.
+                </p>
+                <p>
+                  If I succeed: refund of <strong className="text-accent">{formatCents(netRefund)}</strong>.
+                  If I fail: forfeited. Verification is honor-based.
+                </p>
+                <p className="text-xs text-text-dim italic">
+                  This is a commitment contract, not a wager. Money I can afford to lose. Voluntary.
+                </p>
+              </div>
+            </Card>
 
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={agreed}
                 onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-border accent-accent cursor-pointer"
+                className="mt-1 w-4 h-4 rounded accent-accent cursor-pointer"
               />
               <span className="text-sm text-text-muted">
-                I have read and agree to this commitment contract. I understand that my payment
-                will be collected immediately and refunded only upon verified goal completion.
+                I agree to this commitment contract.
               </span>
             </label>
           </div>
         )}
 
-        {/* Step: Pay */}
-        {step === 'Pay' && (
-          <div className="space-y-6 animate-fade-in">
+        {/* ── PAY ── */}
+        {step === 'pay' && (
+          <div className="animate-fade-in space-y-6">
             <div>
-              <h2 className="text-lg font-semibold mb-1">Time to pay up</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-2">Time to pay</h2>
               <p className="text-text-muted text-sm">
-                Your payment will be held until the deadline. Succeed and it comes back.
-                Fail and... well. You know.
+                Succeed and it comes back. Fail and it doesn't.
               </p>
             </div>
 
-            <div className="bg-bg rounded-lg p-6 text-center border border-border">
-              <div className="text-4xl font-bold mb-1">{formatCents(amountCents)}</div>
-              <div className="text-text-dim text-sm">will be charged now</div>
+            <div className="text-center py-8">
+              <div className="text-5xl font-black glow-text">{formatCents(amountCents)}</div>
+              <div className="text-text-dim text-sm mt-2">charged now</div>
             </div>
 
             {!isStripeConfigured() && (
-              <Card className="border-warning/50" padding="sm">
+              <div className="bg-warning/5 border border-warning/20 rounded-lg px-4 py-3">
                 <p className="text-sm text-warning">
-                  <strong>Demo Mode:</strong> Stripe is not configured. The commitment will be created
-                  but no payment will be collected. Add VITE_STRIPE_PUBLISHABLE_KEY to .env.
+                  <strong>Demo:</strong> Stripe not configured. Commitment will be created without payment.
                 </p>
-              </Card>
+              </div>
             )}
 
             {error && (
               <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
             )}
 
-            <Button
-              className="w-full"
-              size="lg"
-              loading={loading}
-              onClick={handlePayment}
-            >
+            <Button className="w-full" size="lg" loading={loading} onClick={handlePayment}>
               <CreditCard className="w-5 h-5" />
-              {isStripeConfigured() ? `Pay ${formatCents(amountCents)}` : `Create Commitment (Demo)`}
+              {isStripeConfigured() ? `Pay ${formatCents(amountCents)}` : 'Create Commitment (Demo)'}
             </Button>
 
             <p className="text-xs text-text-dim text-center">
-              Payments processed securely by Stripe. We never see your card details.
+              Processed by Stripe. We never see your card.
             </p>
           </div>
         )}
 
-        {/* Navigation */}
-        {step !== 'Pay' && (
-          <div className="flex justify-between mt-8 pt-6 border-t border-border">
-            <Button variant="ghost" onClick={prev} disabled={currentStepIndex === 0}>
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
+        {/* ── NAV ── */}
+        {step !== 'pay' && step !== 'account' && (
+          <div className="mt-10 flex justify-end">
             <Button onClick={next} disabled={!canProceed()}>
               Next
               <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
         )}
-      </Card>
-    </div>
+      </div>
+    </>
   );
 }

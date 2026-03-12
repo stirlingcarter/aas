@@ -1,8 +1,7 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
 import { Layout, ProtectedRoute } from './components/Layout';
 import { Landing } from './pages/Landing';
-import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { NewCommitment } from './pages/NewCommitment';
 import { CommitmentDetail } from './pages/CommitmentDetail';
@@ -18,14 +17,11 @@ export default function App() {
         <Layout>
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth" element={<Navigate to="/new" replace />} />
+            <Route path="/new" element={<NewCommitment />} />
             <Route
               path="/dashboard"
               element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-            />
-            <Route
-              path="/new"
-              element={<ProtectedRoute><NewCommitment /></ProtectedRoute>}
             />
             <Route
               path="/commitment/:id"
